@@ -1,8 +1,9 @@
 # Spo~z — build an installable APK on every push.
 #
 # Every push produces a fresh debug APK you can download from the run's
-# "Artifacts" section — no signing secrets required, because the debug
-# variant is signed with the throwaway debug keystore.
+# "Artifacts" section. No signing secrets are needed: we generate the standard
+# Android debug keystore locally, which is what the app's debug signing config
+# expects (see app/build.gradle.kts -> signingConfigs.debug).
 
 name: Build Spo~z APK
 
@@ -33,6 +34,15 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
