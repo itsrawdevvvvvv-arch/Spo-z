@@ -19,6 +19,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
+import java.time.LocalDateTime
 
 /**
  * Imports a Spotify playlist into a local playlist.
@@ -31,7 +32,7 @@ import kotlinx.coroutines.withContext
  * This version resolves every track through [SpotifyPlaybackResolver], the same
  * scoring path playback uses: candidates are compared on title, artist and
  * duration, and anything scoring below [MIN_MATCH_THRESHOLD] is rejected rather
- * than imported. A scored fallback query covers tracks the primary query
+ * than imported. A scored fallback query covers the tracks the primary query
  * misses, without ever lowering the quality bar.
  */
 object SpotifyPlaylistImporter {
@@ -69,7 +70,15 @@ object SpotifyPlaylistImporter {
     ): ImportResult = withContext(Dispatchers.IO) {
         if (tracks.isEmpty()) error("Playlist has no playable tracks")
 
-        val entity = PlaylistEntity(name = playlistName)
+        // bookmarkedAt MUST be set: the Library's playlist queries all filter on
+        // `bookmarkedAt IS NOT NULL`, so a playlist created without it is written
+        // to the DB but never shows up in the Library (it looked like the import
+        // "wasn't saved"). Setting it is what marks the playlist as saved.
+        val entity =
+            PlaylistEntity(
+                name = playlistName,
+                bookmarkedAt = LocalDateTime.now(),
+            )
         database.transaction { insert(entity) }
         val localPlaylist = database.playlist(entity.id).firstOrNull() ?: error("Could not create local playlist")
 
