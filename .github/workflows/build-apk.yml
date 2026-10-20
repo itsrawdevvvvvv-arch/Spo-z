@@ -1,11 +1,12 @@
-# Spo~z — build an optimized RELEASE APK on every push.
+# Spo~z — build an optimized, signed RELEASE APK on every push.
 #
-# Why release and not debug: the debug variant ships with no R8/minification,
-# no resource shrinking and `debuggable` on, which is dramatically heavier on
-# device. The release variant (see app/build.gradle.kts -> buildTypes.release)
-# enables minify + shrinkResources and is what makes the app feel light on
-# low-end phones. We sign it with a keystore generated here, so no secrets are
-# needed.
+# Release, not debug: the debug variant ships with no R8/minification, no
+# resource shrinking and `debuggable` on, which is dramatically heavier on
+# device. The release variant enables minify + shrinkResources and is what
+# makes the app feel light on low-end phones.
+#
+# Note: app/build.gradle.kts gives the release type no signingConfig, so AGP
+# emits an unsigned APK; we sign it here with apksigner. No secrets needed.
 
 name: Build Spo~z APK
 
@@ -45,8 +46,6 @@ jobs:
       - name: Generate signing keystore
         run: |
           mkdir -p app/keystore
-          # The repo ships its own release.keystore; replace it with ours so the
-          # passwords below are the ones in effect.
           rm -f app/keystore/release.keystore
           keytool -genkeypair -v \
             -keystore app/keystore/release.keystore \
@@ -63,9 +62,23 @@ jobs:
           GLOSSY_APP_NAME: "Spo~z"
           GLOSSY_APPLICATION_ID: com.spoz.music
 
+      - name: Sign release APK
+        run: |
+          OUT=app/build/outputs/apk/foss/release
+          UNSIGNED=$(find "$OUT" -name "*-unsigned.apk" | head -1)
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$OUT/spoz-aligned.apk"
+          "$BT/apksigner" sign \
+            --ks app/keystore/release.keystore \
+            --ks-pass pass:"$STORE_PASSWORD" \
+            --key-pass pass:"$KEY_PASSWORD" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --out "$OUT/spoz-release.apk" \
+            "$OUT/spoz-aligned.apk"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: spoz-release-apk
-          path: app/build/outputs/apk/foss/release/*.apk
+          path: app/build/outputs/apk/foss/release/spoz-release.apk
           if-no-files-found: error
