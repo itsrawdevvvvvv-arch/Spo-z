@@ -29,6 +29,7 @@ import com.metrolist.kugou.KuGou
 import com.metrolist.lastfm.LastFM
 import com.jay.glossy.BuildConfig
 import com.jay.glossy.constants.*
+import com.jay.glossy.db.MusicDatabase
 import com.jay.glossy.di.ApplicationScope
 import com.jay.glossy.extensions.toEnum
 import com.jay.glossy.extensions.toInetSocketAddress
@@ -64,6 +65,9 @@ class App :
     @Inject
     @ApplicationScope
     lateinit var applicationScope: CoroutineScope
+
+    @Inject
+    lateinit var database: MusicDatabase
 
     override fun onCreate() {
         super.onCreate()
@@ -101,6 +105,24 @@ class App :
             // once and cached, so warming them before the proxy is set would snapshot a null proxy and
             // bypass a configured proxy for the whole session. Warm-up is launched only after this.
             initializeSettings()
+
+            // Surface playlists written before bookmarkedAt was set: the old
+            // Spotify import (and ImportPlaylistDialog) created the row without
+            // it, and the Library's playlist queries all require
+            // `bookmarkedAt IS NOT NULL`, so those playlists were stored but
+            // never listed. Only local playlists (browseId IS NULL) are touched
+            // — an online playlist keeps a null bookmarkedAt on purpose to stay
+            // out of the Library — and a local playlist cannot be un-bookmarked
+            // in the UI, so this is safe to repeat (a no-op once all are set).
+            launch(Dispatchers.IO) {
+                runCatching {
+                    database.openHelper.writableDatabase.execSQL(
+                        "UPDATE playlist SET bookmarkedAt = ? " +
+                            "WHERE bookmarkedAt IS NULL AND browseId IS NULL",
+                        arrayOf(System.currentTimeMillis()),
+                    )
+                }.onFailure { reportException(it) }
+            }
 
             // Warm the cipher WebView off the first-play critical path. It needs no session, so kick it
             // as soon as settings settle (don't gate it behind visitorData — that's the bigger cold
