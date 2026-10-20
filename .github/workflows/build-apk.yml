@@ -1,12 +1,10 @@
-# Spo~z — build an optimized, signed RELEASE APK on every push.
+# Spo~z — build a signed RELEASE APK on every push.
 #
-# Release, not debug: the debug variant ships with no R8/minification, no
-# resource shrinking and `debuggable` on, which is dramatically heavier on
-# device. The release variant enables minify + shrinkResources and is what
-# makes the app feel light on low-end phones.
-#
-# Note: app/build.gradle.kts gives the release type no signingConfig, so AGP
-# emits an unsigned APK; we sign it here with apksigner. No secrets needed.
+# The signing key is FIXED (committed at app/keystore/release.keystore) so every
+# build carries the SAME signature. That is what lets a new APK install over an
+# older one as a normal update, instead of failing with a package/signature
+# conflict. The keystore must never be replaced, or installed users would have
+# to uninstall before they could update again.
 
 name: Build Spo~z APK
 
@@ -24,9 +22,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      STORE_PASSWORD: spoz-release
+      STORE_PASSWORD: spozpass
       KEY_ALIAS: spoz
-      KEY_PASSWORD: spoz-release
+      KEY_PASSWORD: spozpass
 
     steps:
       - name: Checkout
@@ -42,16 +40,6 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-
-      - name: Generate signing keystore
-        run: |
-          mkdir -p app/keystore
-          rm -f app/keystore/release.keystore
-          keytool -genkeypair -v \
-            -keystore app/keystore/release.keystore \
-            -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" -keypass "$KEY_PASSWORD" \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Spoz,O=Spoz,C=IN"
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
