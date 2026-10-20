@@ -41,6 +41,9 @@ subprojects {
                 val f = project.file(relative)
                 if (!f.exists()) return
                 val text = f.readText()
+                // Idempotent: skip a change that is already present, so repeated
+                // local builds never apply the same edit twice.
+                if (to.isNotEmpty() && text.contains(to)) return
                 val patched = text.replace(from, to)
                 if (patched != text) f.writeText(patched)
             }
@@ -84,6 +87,20 @@ subprojects {
                 "src/main/kotlin/com/jay/glossy/ui/component/GreetingSection.kt",
                 "if (rememberAmbientMotionEnabled()) {",
                 "if (false) {",
+            )
+
+            // 6. Splash: install the system SplashScreen API on cold start so
+            //    the dark splash hands off cleanly to the first Compose frame.
+            patch(
+                "src/main/kotlin/com/jay/glossy/MainActivity.kt",
+                "import androidx.activity.compose.setContent",
+                "import androidx.activity.compose.setContent\n" +
+                    "import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen",
+            )
+            patch(
+                "src/main/kotlin/com/jay/glossy/MainActivity.kt",
+                "        super.onCreate(savedInstanceState)",
+                "        installSplashScreen()\n        super.onCreate(savedInstanceState)",
             )
         }
     }

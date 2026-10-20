@@ -12,6 +12,21 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
+    <!-- Spo~z dark window base: shown for the frame or two before Compose draws,
+         so launching never flashes the old white window background. -->
+    <style name="Theme.SpoZ" parent="Theme.Metrolist">
+        <item name="android:windowBackground">@color/spoz_splash_background</item>
+    </style>
+
+    <!-- Launcher entry theme. Uses the official androidx SplashScreen API:
+         a dark window with the Spo~z wordmark centred, handing off to
+         Theme.SpoZ as soon as the first frame is ready. -->
+    <style name="Theme.SpoZ.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/spoz_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/spoz_splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.SpoZ</item>
+    </style>
+
     <!-- Widget Theme with Material 3 colors fallback for API < 31 -->
     <style name="Theme.Widget.Metrolist" parent="@android:style/Theme.DeviceDefault.DayNight">
         <item name="android:colorBackground">#E6E1E5</item>
