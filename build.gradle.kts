@@ -33,8 +33,9 @@ subprojects {
         }
     }
 
-    // Spo~z rebrand + UI, applied at build time so the huge source files never
-    // have to be rewritten by hand.
+    // Spo~z rebrand, applied at build time so the huge source files never have
+    // to be rewritten by hand. The app runs on the native Compose UI (a real,
+    // working music app); these two swaps only re-skin it.
     tasks.matching { it.name == "preBuild" }.configureEach {
         doFirst {
             fun patch(relative: String, from: String, to: String) {
@@ -50,19 +51,6 @@ subprojects {
 
             // 2. Design-system accent: teal 1D9E75 -> Spo~z purple B79CFF.
             patch("src/main/kotlin/com/jay/glossy/ui/theme/GlossyDesign.kt", "1D9E75", "B79CFF")
-
-            // 3. Manifest: declare the Spo~z WebView activity and point the
-            //    launcher alias at it, so the app opens the Spo~z UI.
-            val manifest = project.file("src/main/AndroidManifest.xml")
-            if (manifest.exists()) {
-                val text = manifest.readText()
-                val anchor = "        <activity\n            android:name=\".ui.screens.CrashActivity\""
-                val declared = "        <activity\n            android:name=\".SpoZWebActivity\"\n            android:exported=\"true\"\n            android:theme=\"@style/Theme.Metrolist\" />\n" + anchor
-                val patched = text
-                    .replace(anchor, declared)
-                    .replace("android:targetActivity=\".MainActivity\"", "android:targetActivity=\".SpoZWebActivity\"")
-                if (patched != text) manifest.writeText(patched)
-            }
         }
     }
 }
