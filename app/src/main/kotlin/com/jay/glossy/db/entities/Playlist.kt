@@ -35,9 +35,18 @@ data class Playlist(
         get() = playlist.id
     override val title: String
         get() = playlist.name
+
+    /**
+     * Was hardcoded `null`, so any card that draws a playlist's single cover
+     * (the Library grid, the widget, the mini-player) came out blank for local
+     * playlists — including freshly imported Spotify ones — even though the
+     * songs and their art were right there. Fall back to the first song's
+     * thumbnail (and to the playlist's own cover if it has one) so there is
+     * always something to draw.
+     */
     override val thumbnailUrl: String?
-        get() = null
-    
+        get() = playlist.thumbnailUrl ?: songThumbnails.firstOrNull { !it.isNullOrBlank() }
+
     val thumbnails: List<String>
         get() {
             return if (playlist.thumbnailUrl != null)
