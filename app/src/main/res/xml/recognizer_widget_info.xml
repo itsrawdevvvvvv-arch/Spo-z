@@ -4,6 +4,8 @@
     android:minHeight="40dp"
     android:minResizeWidth="40dp"
     android:minResizeHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
     android:updatePeriodMillis="0"
     android:previewLayout="@layout/widget_recognizer_wide"
     android:initialLayout="@layout/widget_recognizer_wide"
