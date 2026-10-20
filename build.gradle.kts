@@ -41,9 +41,11 @@ subprojects {
                 val f = project.file(relative)
                 if (!f.exists()) return
                 val text = f.readText()
-                // Idempotent: skip a change that is already present, so repeated
-                // local builds never apply the same edit twice.
-                if (to.isNotEmpty() && text.contains(to)) return
+                // Idempotent: nothing to do if the anchor is gone (a replacement
+                // already applied), or — for an insertion that keeps its anchor —
+                // if the inserted text is already present.
+                if (from.isNotEmpty() && !text.contains(from)) return
+                if (to.contains(from) && text.contains(to)) return
                 val patched = text.replace(from, to)
                 if (patched != text) f.writeText(patched)
             }
@@ -101,6 +103,54 @@ subprojects {
                 "src/main/kotlin/com/jay/glossy/MainActivity.kt",
                 "        super.onCreate(savedInstanceState)",
                 "        installSplashScreen()\n        super.onCreate(savedInstanceState)",
+            )
+
+            // 7. Spotify share import: declare the new share/VIEW activity in the
+            //    manifest by string replace, so the manifest is never rewritten
+            //    by hand.
+            val spotifyShareActivity =
+                buildString {
+                    append("\n")
+                    append("        <activity\n")
+                    append("            android:name=\".spotify.SpotifyShareImportActivity\"\n")
+                    append("            android:exported=\"true\"\n")
+                    append("            android:excludeFromRecents=\"true\"\n")
+                    append("            android:theme=\"@style/Theme.SpoZ\">\n")
+                    append("            <intent-filter>\n")
+                    append("                <action android:name=\"android.intent.action.SEND\" />\n")
+                    append("                <category android:name=\"android.intent.category.DEFAULT\" />\n")
+                    append("                <data android:mimeType=\"text/plain\" />\n")
+                    append("            </intent-filter>\n")
+                    append("            <intent-filter>\n")
+                    append("                <action android:name=\"android.intent.action.VIEW\" />\n")
+                    append("                <category android:name=\"android.intent.category.DEFAULT\" />\n")
+                    append("                <category android:name=\"android.intent.category.BROWSABLE\" />\n")
+                    append("                <data android:scheme=\"https\" android:host=\"open.spotify.com\" android:pathPrefix=\"/playlist/\" />\n")
+                    append("                <data android:scheme=\"https\" android:host=\"open.spotify.com\" android:pathPrefix=\"/album/\" />\n")
+                    append("                <data android:scheme=\"https\" android:host=\"open.spotify.com\" android:pathPrefix=\"/track/\" />\n")
+                    append("            </intent-filter>\n")
+                    append("            <intent-filter>\n")
+                    append("                <action android:name=\"android.intent.action.VIEW\" />\n")
+                    append("                <category android:name=\"android.intent.category.DEFAULT\" />\n")
+                    append("                <category android:name=\"android.intent.category.BROWSABLE\" />\n")
+                    append("                <data android:scheme=\"https\" android:host=\"spotify.link\" />\n")
+                    append("                <data android:scheme=\"https\" android:host=\"www.spotify.link\" />\n")
+                    append("                <data android:scheme=\"https\" android:host=\"spotify.app.link\" />\n")
+                    append("            </intent-filter>\n")
+                    append("            <intent-filter>\n")
+                    append("                <action android:name=\"android.intent.action.VIEW\" />\n")
+                    append("                <category android:name=\"android.intent.category.DEFAULT\" />\n")
+                    append("                <category android:name=\"android.intent.category.BROWSABLE\" />\n")
+                    append("                <data android:scheme=\"spotify\" android:host=\"playlist\" />\n")
+                    append("                <data android:scheme=\"spotify\" android:host=\"album\" />\n")
+                    append("                <data android:scheme=\"spotify\" android:host=\"track\" />\n")
+                    append("            </intent-filter>\n")
+                    append("        </activity>")
+                }
+            patch(
+                "src/main/AndroidManifest.xml",
+                "    </application>",
+                spotifyShareActivity + "\n    </application>",
             )
         }
     }

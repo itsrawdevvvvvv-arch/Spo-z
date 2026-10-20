@@ -40,6 +40,13 @@ object SpotifyPlaylistImporter {
     /** Kept in step with [SpotifyPlaybackResolver]. */
     private const val MIN_MATCH_THRESHOLD = 0.35
 
+    /** The local playlist an import created, and how many songs landed in it. */
+    data class ImportResult(
+        val playlistId: String,
+        val importedCount: Int,
+        val entity: PlaylistEntity,
+    )
+
     suspend fun importPlaylist(
         database: MusicDatabase,
         playlistId: String,
@@ -47,6 +54,19 @@ object SpotifyPlaylistImporter {
     ): Int = withContext(Dispatchers.IO) {
         val page = Spotify.playlistTracks(playlistId, limit = 100).getOrThrow()
         val tracks = page.items.mapNotNull { it.track }
+        importTracks(database, playlistName, tracks).importedCount
+    }
+
+    /**
+     * Imports an already-fetched list of Spotify tracks into a new local
+     * playlist. Shared by the authenticated importer above and by the anonymous
+     * share-import, which fetches its tracks through [SpotifyAnonymous].
+     */
+    suspend fun importTracks(
+        database: MusicDatabase,
+        playlistName: String,
+        tracks: List<SpotifyTrack>,
+    ): ImportResult = withContext(Dispatchers.IO) {
         if (tracks.isEmpty()) error("Playlist has no playable tracks")
 
         val entity = PlaylistEntity(name = playlistName)
@@ -62,7 +82,7 @@ object SpotifyPlaylistImporter {
         }
 
         database.addSongsToPlaylist(localPlaylist, songIds.map { it to null })
-        songIds.size
+        ImportResult(playlistId = entity.id, importedCount = songIds.size, entity = entity)
     }
 
     /**
