@@ -33,8 +33,8 @@ subprojects {
         }
     }
 
-    // Spo~z rebrand + performance, applied at build time so the huge source
-    // files never have to be rewritten by hand.
+    // Spo~z rebrand + performance + fixes, applied at build time so the huge
+    // source files never have to be rewritten by hand.
     tasks.matching { it.name == "preBuild" }.configureEach {
         doFirst {
             fun patch(relative: String, from: String, to: String) {
@@ -166,6 +166,37 @@ subprojects {
                     "                <data android:mimeType=\"text/plain\" />\n" +
                     "            </intent-filter>\n\n",
                 "",
+            )
+
+            // 9. Custom playlist cover: the edit-cover button on a playlist only
+            //    opened the "choose from library" picker when the playlist
+            //    ALREADY had a custom cover — otherwise it showed a note dialog.
+            //    So a freshly imported (local) playlist could never get one. For
+            //    a local playlist (no YouTube browseId) open the picker straight
+            //    away, which is the whole point of the button.
+            patch(
+                "src/main/kotlin/com/jay/glossy/ui/screens/playlist/LocalPlaylistScreen.kt",
+                "if (isCustomThumbnail) {",
+                "if (isCustomThumbnail || playlist.playlist.browseId == null) {",
+            )
+
+            // 10. ...and the "is this a custom cover?" check hardcoded the old
+            //     package id, so a cover saved under the new applicationId was
+            //     not recognised after reopening the screen. Match any
+            //     content:// cover instead.
+            patch(
+                "src/main/kotlin/com/jay/glossy/ui/screens/playlist/LocalPlaylistScreen.kt",
+                "it.contains(\"content://com.jay.glossy\")",
+                "it.contains(\"content://\")",
+            )
+
+            // 11. Keep the custom cover: it was written into the cache dir, which
+            //     Android is free to wipe — so the cover could silently vanish.
+            //     Write it to the app's files dir instead.
+            patch(
+                "src/main/kotlin/com/jay/glossy/ui/screens/playlist/LocalPlaylistScreen.kt",
+                "context.cacheDir, \"playlist_cover_crop_",
+                "context.filesDir, \"playlist_cover_crop_",
             )
         }
     }
