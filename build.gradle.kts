@@ -53,7 +53,7 @@ subprojects {
 
             // 3. Performance: drop every .blur(...) modifier. Blur is a
             //    full-screen GPU pass per frame and is the single biggest cost
-            //    on low-end devices; the app reads fine without it.
+            //    on low-end devices.
             patch("src/main/kotlin/com/jay/glossy/ui/component/LyricsImageCard.kt", ".blur(80.dp)", "")
             patch("src/main/kotlin/com/jay/glossy/ui/component/LyricsLine.kt", ".blur(lineBlur)", "")
             patch("src/main/kotlin/com/jay/glossy/ui/component/OriginalLyrics.kt", ".blur(lineBlur)", "")
@@ -61,9 +61,7 @@ subprojects {
             patch("src/main/kotlin/com/jay/glossy/ui/player/Player.kt", ".blur(60.dp)", "")
             patch("src/main/kotlin/com/jay/glossy/ui/player/applemusic/NowPlayingContentAppleMusic.kt", ".blur(180.dp)", "")
 
-            // 4. Remove the Equalizer entry from the player menu, so the feature
-            //    is no longer reachable. PlayerMenu.kt is ~96 KB, far too large
-            //    to rewrite, so the exact menu-item block is dropped here.
+            // 4. Remove the Equalizer entry from the player menu.
             patch(
                 "src/main/kotlin/com/jay/glossy/ui/menu/PlayerMenu.kt",
                 "                            Material3MenuItemData(\n" +
@@ -77,6 +75,15 @@ subprojects {
                     "                                },\n" +
                     "                            ),\n",
                 "",
+            )
+
+            // 5. Performance: pin the Home header aurora wash static. It is a
+            //    radial gradient repainted every frame; with the drift pinned at
+            //    zero no animation is created and the header stops repainting.
+            patch(
+                "src/main/kotlin/com/jay/glossy/ui/component/GreetingSection.kt",
+                "if (rememberAmbientMotionEnabled()) {",
+                "if (false) {",
             )
         }
     }
