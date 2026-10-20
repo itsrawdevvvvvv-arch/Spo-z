@@ -82,17 +82,14 @@ subprojects {
                 "",
             )
 
-            // 5. Performance: pin the Home header aurora wash static. It is a
-            //    radial gradient repainted every frame; with the drift pinned at
-            //    zero no animation is created and the header stops repainting.
+            // 5. Performance: pin the Home header aurora wash static.
             patch(
                 "src/main/kotlin/com/jay/glossy/ui/component/GreetingSection.kt",
                 "if (rememberAmbientMotionEnabled()) {",
                 "if (false) {",
             )
 
-            // 6. Splash: install the system SplashScreen API on cold start so
-            //    the dark splash hands off cleanly to the first Compose frame.
+            // 6. Splash: install the system SplashScreen API on cold start.
             patch(
                 "src/main/kotlin/com/jay/glossy/MainActivity.kt",
                 "import androidx.activity.compose.setContent",
@@ -105,7 +102,7 @@ subprojects {
                 "        installSplashScreen()\n        super.onCreate(savedInstanceState)",
             )
 
-            // 7. Spotify share import: declare the new share/VIEW activity in the
+            // 7. Spotify share import: declare the share/VIEW activity in the
             //    manifest by string replace, so the manifest is never rewritten
             //    by hand.
             val spotifyShareActivity =
@@ -151,6 +148,24 @@ subprojects {
                 "src/main/AndroidManifest.xml",
                 "    </application>",
                 spotifyShareActivity + "\n    </application>",
+            )
+
+            // 8. Share sheet: the app used to show TWO "Spo~z" targets, because
+            //    the main activity already had its own ACTION_SEND (text/plain)
+            //    "Share filter" and the new share-import activity added another.
+            //    Drop the old one so there is a single, unambiguous Spo~z entry
+            //    (the one that imports a Spotify playlist).
+            patch(
+                "src/main/AndroidManifest.xml",
+                "            <!-- Share filter -->\n" +
+                    "            <intent-filter>\n" +
+                    "                <action android:name=\"android.intent.action.SEND\" />\n" +
+                    "\n" +
+                    "                <category android:name=\"android.intent.category.DEFAULT\" />\n" +
+                    "\n" +
+                    "                <data android:mimeType=\"text/plain\" />\n" +
+                    "            </intent-filter>\n\n",
+                "",
             )
         }
     }
