@@ -1,9 +1,11 @@
-# Spo~z — build an installable APK on every push.
+# Spo~z — build an optimized RELEASE APK on every push.
 #
-# Every push produces a fresh debug APK you can download from the run's
-# "Artifacts" section. No signing secrets are needed: we generate the standard
-# Android debug keystore locally, which is what the app's debug signing config
-# expects (see app/build.gradle.kts -> signingConfigs.debug).
+# Why release and not debug: the debug variant ships with no R8/minification,
+# no resource shrinking and `debuggable` on, which is dramatically heavier on
+# device. The release variant (see app/build.gradle.kts -> buildTypes.release)
+# enables minify + shrinkResources and is what makes the app feel light on
+# low-end phones. We sign it with a keystore generated here, so no secrets are
+# needed.
 
 name: Build Spo~z APK
 
@@ -17,8 +19,13 @@ permissions:
 
 jobs:
   build:
-    name: Debug APK
+    name: Release APK
     runs-on: ubuntu-latest
+
+    env:
+      STORE_PASSWORD: spoz-release
+      KEY_ALIAS: spoz
+      KEY_PASSWORD: spoz-release
 
     steps:
       - name: Checkout
@@ -35,20 +42,20 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Generate debug keystore
+      - name: Generate signing keystore
         run: |
-          mkdir -p "$HOME/.android"
+          mkdir -p app/keystore
           keytool -genkeypair -v \
-            -keystore "$HOME/.android/debug.keystore" \
-            -storepass android -alias androiddebugkey -keypass android \
+            -keystore app/keystore/release.keystore \
+            -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" -keypass "$KEY_PASSWORD" \
             -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+            -dname "CN=Spo~z,O=Spo~z,C=IN"
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Assemble debug APK
-        run: ./gradlew --console=plain assembleFossDebug -x lint
+      - name: Assemble release APK
+        run: ./gradlew --console=plain assembleFossRelease -x lint
         env:
           GLOSSY_APP_NAME: "Spo~z"
           GLOSSY_APPLICATION_ID: com.spoz.music
@@ -56,6 +63,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: spoz-debug-apk
-          path: app/build/outputs/apk/foss/debug/*.apk
+          name: spoz-release-apk
+          path: app/build/outputs/apk/foss/release/*.apk
           if-no-files-found: error
