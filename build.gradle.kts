@@ -56,9 +56,7 @@ subprojects {
             // 2. Design-system accent: teal 1D9E75 -> Spo~z purple B79CFF.
             patch("src/main/kotlin/com/jay/glossy/ui/theme/GlossyDesign.kt", "1D9E75", "B79CFF")
 
-            // 3. Performance: drop every .blur(...) modifier. Blur is a
-            //    full-screen GPU pass per frame and is the single biggest cost
-            //    on low-end devices.
+            // 3. Performance: drop every .blur(...) modifier.
             patch("src/main/kotlin/com/jay/glossy/ui/component/LyricsImageCard.kt", ".blur(80.dp)", "")
             patch("src/main/kotlin/com/jay/glossy/ui/component/LyricsLine.kt", ".blur(lineBlur)", "")
             patch("src/main/kotlin/com/jay/glossy/ui/component/OriginalLyrics.kt", ".blur(lineBlur)", "")
@@ -104,12 +102,15 @@ subprojects {
 
             // 7. Spotify share import: declare the share/VIEW activity in the
             //    manifest by string replace, so the manifest is never rewritten
-            //    by hand.
+            //    by hand. The activity carries its own label so the share sheet
+            //    says "Import from Spotify" instead of a second, identical
+            //    "Spo~z" — you can always tell which entry imports a playlist.
             val spotifyShareActivity =
                 buildString {
                     append("\n")
                     append("        <activity\n")
                     append("            android:name=\".spotify.SpotifyShareImportActivity\"\n")
+                    append("            android:label=\"Import from Spotify\"\n")
                     append("            android:exported=\"true\"\n")
                     append("            android:excludeFromRecents=\"true\"\n")
                     append("            android:theme=\"@style/Theme.SpoZ\">\n")
@@ -150,11 +151,8 @@ subprojects {
                 spotifyShareActivity + "\n    </application>",
             )
 
-            // 8. Share sheet: the app used to show TWO "Spo~z" targets, because
-            //    the main activity already had its own ACTION_SEND (text/plain)
-            //    "Share filter" and the new share-import activity added another.
-            //    Drop the old one so there is a single, unambiguous Spo~z entry
-            //    (the one that imports a Spotify playlist).
+            // 8. Share sheet: drop the main activity's own ACTION_SEND
+            //    (text/plain) "Share filter" so there is a single share target.
             patch(
                 "src/main/AndroidManifest.xml",
                 "            <!-- Share filter -->\n" +
@@ -168,31 +166,22 @@ subprojects {
                 "",
             )
 
-            // 9. Custom playlist cover: the edit-cover button on a playlist only
-            //    opened the "choose from library" picker when the playlist
-            //    ALREADY had a custom cover — otherwise it showed a note dialog.
-            //    So a freshly imported (local) playlist could never get one. For
-            //    a local playlist (no YouTube browseId) open the picker straight
-            //    away, which is the whole point of the button.
+            // 9. Custom playlist cover: open the gallery picker on a local
+            //    playlist even when it has no custom cover yet.
             patch(
                 "src/main/kotlin/com/jay/glossy/ui/screens/playlist/LocalPlaylistScreen.kt",
                 "if (isCustomThumbnail) {",
                 "if (isCustomThumbnail || playlist.playlist.browseId == null) {",
             )
 
-            // 10. ...and the "is this a custom cover?" check hardcoded the old
-            //     package id, so a cover saved under the new applicationId was
-            //     not recognised after reopening the screen. Match any
-            //     content:// cover instead.
+            // 10. Recognise a custom cover saved under the current app id.
             patch(
                 "src/main/kotlin/com/jay/glossy/ui/screens/playlist/LocalPlaylistScreen.kt",
                 "it.contains(\"content://com.jay.glossy\")",
                 "it.contains(\"content://\")",
             )
 
-            // 11. Keep the custom cover: it was written into the cache dir, which
-            //     Android is free to wipe — so the cover could silently vanish.
-            //     Write it to the app's files dir instead.
+            // 11. Keep the custom cover: files dir, not the wipeable cache dir.
             patch(
                 "src/main/kotlin/com/jay/glossy/ui/screens/playlist/LocalPlaylistScreen.kt",
                 "context.cacheDir, \"playlist_cover_crop_",
