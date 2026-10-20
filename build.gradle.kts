@@ -33,9 +33,8 @@ subprojects {
         }
     }
 
-    // Spo~z rebrand, applied at build time so the huge source files never have
-    // to be rewritten by hand. The app runs on the native Compose UI (a real,
-    // working music app); these two swaps only re-skin it.
+    // Spo~z rebrand + performance, applied at build time so the huge source
+    // files never have to be rewritten by hand.
     tasks.matching { it.name == "preBuild" }.configureEach {
         doFirst {
             fun patch(relative: String, from: String, to: String) {
@@ -51,6 +50,17 @@ subprojects {
 
             // 2. Design-system accent: teal 1D9E75 -> Spo~z purple B79CFF.
             patch("src/main/kotlin/com/jay/glossy/ui/theme/GlossyDesign.kt", "1D9E75", "B79CFF")
+
+            // 3. Performance: drop every .blur(...) modifier. Blur is a
+            //    full-screen GPU pass per frame and is the single biggest cost
+            //    on low-end devices; the app reads fine without it. Each swap is
+            //    an exact literal and no-ops if the call is not present.
+            patch("src/main/kotlin/com/jay/glossy/ui/component/LyricsImageCard.kt", ".blur(80.dp)", "")
+            patch("src/main/kotlin/com/jay/glossy/ui/component/LyricsLine.kt", ".blur(lineBlur)", "")
+            patch("src/main/kotlin/com/jay/glossy/ui/component/OriginalLyrics.kt", ".blur(lineBlur)", "")
+            patch("src/main/kotlin/com/jay/glossy/ui/player/MiniPlayer.kt", ".blur(GlowBlurRadius)", "")
+            patch("src/main/kotlin/com/jay/glossy/ui/player/Player.kt", ".blur(60.dp)", "")
+            patch("src/main/kotlin/com/jay/glossy/ui/player/applemusic/NowPlayingContentAppleMusic.kt", ".blur(180.dp)", "")
         }
     }
 }
