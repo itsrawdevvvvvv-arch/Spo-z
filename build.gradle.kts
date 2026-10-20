@@ -53,14 +53,31 @@ subprojects {
 
             // 3. Performance: drop every .blur(...) modifier. Blur is a
             //    full-screen GPU pass per frame and is the single biggest cost
-            //    on low-end devices; the app reads fine without it. Each swap is
-            //    an exact literal and no-ops if the call is not present.
+            //    on low-end devices; the app reads fine without it.
             patch("src/main/kotlin/com/jay/glossy/ui/component/LyricsImageCard.kt", ".blur(80.dp)", "")
             patch("src/main/kotlin/com/jay/glossy/ui/component/LyricsLine.kt", ".blur(lineBlur)", "")
             patch("src/main/kotlin/com/jay/glossy/ui/component/OriginalLyrics.kt", ".blur(lineBlur)", "")
             patch("src/main/kotlin/com/jay/glossy/ui/player/MiniPlayer.kt", ".blur(GlowBlurRadius)", "")
             patch("src/main/kotlin/com/jay/glossy/ui/player/Player.kt", ".blur(60.dp)", "")
             patch("src/main/kotlin/com/jay/glossy/ui/player/applemusic/NowPlayingContentAppleMusic.kt", ".blur(180.dp)", "")
+
+            // 4. Remove the Equalizer entry from the player menu, so the feature
+            //    is no longer reachable. PlayerMenu.kt is ~96 KB, far too large
+            //    to rewrite, so the exact menu-item block is dropped here.
+            patch(
+                "src/main/kotlin/com/jay/glossy/ui/menu/PlayerMenu.kt",
+                "                            Material3MenuItemData(\n" +
+                    "                                icon = { PlayerMenuTonalTile(iconRes = R.drawable.equalizer) },\n" +
+                    "                                title = { Text(text = stringResource(R.string.equalizer)) },\n" +
+                    "                                description = { Text(text = stringResource(R.string.equalizer_desc)) },\n" +
+                    "                                cardColors = menuRowColors(),\n" +
+                    "                                onClick = {\n" +
+                    "                                    navController.navigate(\"equalizer\")\n" +
+                    "                                    onDismiss()\n" +
+                    "                                },\n" +
+                    "                            ),\n",
+                "",
+            )
         }
     }
 }
