@@ -33,21 +33,28 @@ subprojects {
         }
     }
 
-    // Spo~z: rebrand the app wordmark at build time.
+    // Spo~z rebrand, applied at build time so the huge source files never have
+    // to be rewritten by hand.
     //
-    // The Home top bar's "Glossy" wordmark is one hardcoded string inside
-    // MainActivity.kt, which is ~1900 lines long. Rewriting a file that size to
-    // change one line is risky, so instead we patch the string here, right
-    // before compilation. It only ever swaps the exact literal "Glossy" for
-    // "Spo~z", and does nothing if the file is absent or already patched.
+    //  1. MainActivity.kt (~1900 lines): the Home top bar's hardcoded "Glossy"
+    //     wordmark becomes "Spo~z".
+    //  2. GlossyDesign.kt: the design-system accent is the literal 1D9E75
+    //     (teal). Swapping that hex string to B79CFF recolours the accent
+    //     everywhere it is used (dark, light, soft and header tokens at once).
+    //
+    // Both are plain string swaps on exact literals and no-op if the files are
+    // absent or already patched.
     tasks.matching { it.name == "preBuild" }.configureEach {
         doFirst {
-            val source = project.file("src/main/kotlin/com/jay/glossy/MainActivity.kt")
-            if (source.exists()) {
-                val text = source.readText()
-                val patched = text.replace("\"Glossy\"", "\"Spo~z\"")
-                if (patched != text) source.writeText(patched)
+            fun patch(relative: String, from: String, to: String) {
+                val f = project.file(relative)
+                if (!f.exists()) return
+                val text = f.readText()
+                val patched = text.replace(from, to)
+                if (patched != text) f.writeText(patched)
             }
+            patch("src/main/kotlin/com/jay/glossy/MainActivity.kt", "\"Glossy\"", "\"Spo~z\"")
+            patch("src/main/kotlin/com/jay/glossy/ui/theme/GlossyDesign.kt", "1D9E75", "B79CFF")
         }
     }
 }
