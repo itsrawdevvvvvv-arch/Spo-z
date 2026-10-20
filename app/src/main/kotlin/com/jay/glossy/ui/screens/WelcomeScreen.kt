@@ -1,37 +1,20 @@
 /**
- * Glossy Project (C) 2026
- * Licensed under GPL-3.0 | See git history for contributors
+ * Spo~z — onboarding
+ * Licensed under GPL-3.0
  *
- * Onboarding. Three steps on one violet backdrop:
+ * Three steps on the Spo~z backdrop:
+ *   0. sign-in      — [GlossyLoginScreen] (the Spo~z loading + login screen),
+ *   1. nickname     — "What should we call you?",
+ *   2. community    — "You're all set" + the project's channels.
  *
- *  1. the sign-in screen — [GlossyLoginScreen]: the full-bleed violet design
- *     with the holographic key art and Google / guest / cookie-token entries,
- *  2. the guest nickname step,
- *  3. the community page — Instagram, Discord and Telegram — which ends with
- *     "Next" and hands the user over to Home.
- *
- * Signed-in users never see step 1: the sign-in flow restarts the app, so the
- * relaunched process lands straight on step 3 (see [PendingCommunityIntroKey]).
+ * Rewritten for Spo~z: no Glossy branding, no "Jay, Chikku & Matrix" credit,
+ * and a deliberately light, flat look (no blur / glass) so it stays smooth on
+ * low-end devices. The entry point keeps its original signature so the
+ * navigation graph is untouched.
  */
 
 package com.jay.glossy.ui.screens
 
-import android.content.Context
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,71 +26,52 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jay.glossy.R
 import com.jay.glossy.constants.CommunityChannel
 import com.jay.glossy.constants.GuestNameKey
 import com.jay.glossy.constants.InnerTubeCookieKey
 import com.jay.glossy.constants.PendingCommunityIntroKey
-import com.jay.glossy.ui.component.GlossyDotsIndicator
-import com.jay.glossy.ui.component.SeaGlassPill
-import com.jay.glossy.ui.theme.GlossyDimens
-import com.jay.glossy.ui.theme.GlossyOnboardingPalette
+import com.jay.glossy.ui.theme.SpozAccents
+import com.jay.glossy.ui.theme.SpozPalette
 import com.jay.glossy.utils.rememberPreference
 import com.jay.glossy.utils.safeDataStoreEdit
 import kotlinx.coroutines.launch
 
-enum class WelcomeState {
-    INTRO,
-    GUEST_INPUT,
-    COMMUNITY,
-}
+/** Placeholder handle — swap for the real one when provided. */
+private const val SPOZ_HANDLE = "@spo_z"
+private const val SPOZ_CREDIT = "Crafted with \u2764 by rawde_vvvvvv"
 
-/** Drawable the project ships its key art as (optional — see [OnboardingBackdrop]). */
-private const val KEY_ART_RES_NAME = "login_bg"
+private const val STEP_INTRO = 0
+private const val STEP_GUEST = 1
+private const val STEP_COMMUNITY = 2
 
 @Composable
 fun GlossyWelcomeScreen(
@@ -116,703 +80,293 @@ fun GlossyWelcomeScreen(
     onTokenClick: () -> Unit,
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
 
     val (cookie) = rememberPreference(InnerTubeCookieKey, defaultValue = "")
     val (pendingCommunityIntro, setPendingCommunityIntro) =
         rememberPreference(PendingCommunityIntroKey, defaultValue = false)
 
-    var currentState by rememberSaveable { mutableStateOf(WelcomeState.INTRO) }
+    var step by rememberSaveable { mutableStateOf(STEP_INTRO) }
     var guestName by rememberSaveable { mutableStateOf("") }
-    // The flow can be observed from two places (a session that already exists and
-    // the user pressing Next), so make sure Home is entered exactly once.
-    var setupCompleted by rememberSaveable { mutableStateOf(false) }
+    var completed by rememberSaveable { mutableStateOf(false) }
+
     val completeOnce: (String) -> Unit = { name ->
-        if (!setupCompleted) {
-            setupCompleted = true
+        if (!completed) {
+            completed = true
             onSetupComplete(name)
         }
     }
 
-    // A session restored from a backup (or an install that already has a cookie)
-    // has nothing to sign in; go to Home. Right after an interactive sign-in the
-    // restarted process sets [PendingCommunityIntroKey] and the community page
-    // is shown instead, so the flow still ends with an explicit hand-off.
     LaunchedEffect(cookie, pendingCommunityIntro) {
         if (cookie.isBlank()) return@LaunchedEffect
         if (pendingCommunityIntro) {
-            if (currentState == WelcomeState.INTRO) currentState = WelcomeState.COMMUNITY
+            if (step == STEP_INTRO) step = STEP_COMMUNITY
         } else {
             completeOnce("Google User")
         }
     }
 
-    val finishOnboarding: () -> Unit = {
-        coroutineScope.launch {
-            if (pendingCommunityIntro) setPendingCommunityIntro(false)
-            completeOnce(guestName.trim().ifBlank { "Google User" })
-        }
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(GlossyOnboardingPalette.BackdropBottom),
+            .background(SpozPalette.DarkBackground),
     ) {
-        OnboardingBackdrop(
-            dim = if (currentState == WelcomeState.INTRO) 0f else 0.45f,
-        )
+        when (step) {
+            STEP_INTRO -> GlossyLoginScreen(
+                onGoogleClick = onGoogleLoginClick,
+                onGuestClick = { step = STEP_GUEST },
+                onTokenClick = onTokenClick,
+            )
 
-        AnimatedContent(
-            targetState = currentState,
-            transitionSpec = {
-                if (targetState.ordinal > initialState.ordinal) {
-                    (slideInHorizontally(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioLowBouncy,
-                            stiffness = Spring.StiffnessMediumLow,
-                        ),
-                    ) { it / 3 } + fadeIn(tween(350, easing = FastOutSlowInEasing)) + scaleIn(
-                        initialScale = 0.94f,
-                        animationSpec = tween(350),
-                    )).togetherWith(
-                        slideOutHorizontally(
-                            animationSpec = tween(280, easing = FastOutLinearInEasing),
-                        ) { -it / 3 } + fadeOut(tween(240)) + scaleOut(
-                            targetScale = 0.94f,
-                            animationSpec = tween(280),
-                        ),
-                    )
-                } else {
-                    (slideInHorizontally(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioLowBouncy,
-                            stiffness = Spring.StiffnessMediumLow,
-                        ),
-                    ) { -it / 3 } + fadeIn(tween(350, easing = FastOutSlowInEasing)) + scaleIn(
-                        initialScale = 0.94f,
-                        animationSpec = tween(350),
-                    )).togetherWith(
-                        slideOutHorizontally(
-                            animationSpec = tween(280, easing = FastOutLinearInEasing),
-                        ) { it / 3 } + fadeOut(tween(240)) + scaleOut(
-                            targetScale = 0.94f,
-                            animationSpec = tween(280),
-                        ),
-                    )
-                }
-            },
-            label = "WelcomeTransition",
-            modifier = Modifier.fillMaxSize(),
-        ) { state ->
-            when (state) {
-                WelcomeState.INTRO -> {
-                    GlossyLoginScreen(
-                        onGoogleClick = onGoogleLoginClick,
-                        onGuestClick = { currentState = WelcomeState.GUEST_INPUT },
-                        onTokenClick = onTokenClick,
-                    )
-                }
-
-                WelcomeState.GUEST_INPUT -> {
-                    GuestInputSection(
-                        name = guestName,
-                        activeIndex = 1,
-                        onNameChange = { guestName = it },
-                        onBack = { currentState = WelcomeState.INTRO },
-                        onContinue = {
-                            val name = guestName.trim()
-                            if (name.isNotBlank()) {
-                                coroutineScope.launch {
-                                    context.safeDataStoreEdit { prefs ->
-                                        prefs[GuestNameKey] = name
-                                    }
-                                    currentState = WelcomeState.COMMUNITY
-                                }
-                            }
-                        },
-                    )
-                }
-
-                WelcomeState.COMMUNITY -> {
-                    CommunitySection(
-                        activeIndex = 2,
-                        onNext = finishOnboarding,
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Backdrop
-// ============================================================================
-
-/**
- * The onboarding backdrop: the project's key art when it is present in the
- * drawable resources, over a violet gradient with a soft glow. The art is
- * looked up by name so the flow still renders correctly (and the build still
- * passes) before the asset is added.
- */
-@Composable
-private fun OnboardingBackdrop(
-    modifier: Modifier = Modifier,
-    dim: Float = 0f,
-) {
-    val context = LocalContext.current
-    val artworkId =
-        remember(context) {
-            context.resources.getIdentifier(KEY_ART_RES_NAME, "drawable", context.packageName)
-        }
-
-    Box(modifier = modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .drawBehind {
-                    drawRect(
-                        Brush.verticalGradient(
-                            listOf(
-                                GlossyOnboardingPalette.BackdropTop,
-                                GlossyOnboardingPalette.BackdropMid,
-                                GlossyOnboardingPalette.BackdropBottom,
-                            ),
-                        ),
-                    )
+            STEP_GUEST -> SpozGuestStep(
+                name = guestName,
+                onNameChange = { guestName = it },
+                onBack = { step = STEP_INTRO },
+                onContinue = {
+                    val name = guestName.trim()
+                    if (name.isNotBlank()) {
+                        scope.launch {
+                            context.safeDataStoreEdit { prefs -> prefs[GuestNameKey] = name }
+                            step = STEP_COMMUNITY
+                        }
+                    }
                 },
-        )
+            )
 
-        if (artworkId != 0) {
-            Image(
-                painter = painterResource(artworkId),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
+            else -> SpozCommunityStep(
+                onNext = {
+                    scope.launch {
+                        if (pendingCommunityIntro) setPendingCommunityIntro(false)
+                        completeOnce(guestName.trim().ifBlank { "Google User" })
+                    }
+                },
             )
         }
-
-        // Ambient glow behind the brand mark, plus the brighter violet corner
-        // and the deep shadow at the opposite end that give the backdrop its
-        // lit-from-above feel.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .drawBehind {
-                    val glowCenter = Offset(size.width / 2f, size.height * 0.32f)
-                    val glowRadius = size.width * 1.05f
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                GlossyOnboardingPalette.Glow.copy(alpha = 0.55f),
-                                Color.Transparent,
-                            ),
-                            center = glowCenter,
-                            radius = glowRadius,
-                        ),
-                        radius = glowRadius,
-                        center = glowCenter,
-                    )
-
-                    val cornerCenter = Offset(size.width * 1.02f, -size.height * 0.04f)
-                    val cornerRadius = size.width * 0.95f
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                GlossyOnboardingPalette.Glow.copy(alpha = 0.65f),
-                                Color.Transparent,
-                            ),
-                            center = cornerCenter,
-                            radius = cornerRadius,
-                        ),
-                        radius = cornerRadius,
-                        center = cornerCenter,
-                    )
-
-                    val shadowCenter = Offset(-size.width * 0.1f, size.height)
-                    val shadowRadius = size.width * 0.9f
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                GlossyOnboardingPalette.BackdropBottom.copy(alpha = 0.75f),
-                                Color.Transparent,
-                            ),
-                            center = shadowCenter,
-                            radius = shadowRadius,
-                        ),
-                        radius = shadowRadius,
-                        center = shadowCenter,
-                    )
-                },
-        )
-
-        // Legibility wash. Darkens as the user walks deeper into the flow, so
-        // the artwork never competes with the form.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .drawBehind {
-                    drawRect(
-                        Brush.verticalGradient(
-                            listOf(
-                                GlossyOnboardingPalette.BackdropTop.copy(alpha = 0.28f + 0.3f * dim),
-                                GlossyOnboardingPalette.BackdropMid.copy(alpha = 0.14f + 0.36f * dim),
-                                GlossyOnboardingPalette.BackdropBottom.copy(alpha = 0.72f + 0.2f * dim),
-                            ),
-                        ),
-                    )
-                },
-        )
     }
 }
 
-// ============================================================================
-// Shared pieces
-// ============================================================================
-
-/** The app mark, white, with its own glow. */
 @Composable
-private fun GlossyMark(markSize: Dp = 88.dp) {
-    Box(
-        modifier = Modifier.size(markSize),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .drawBehind {
-                    val glowCenter = Offset(this.size.width / 2f, this.size.height / 2f)
-                    val glowRadius = this.size.minDimension * 0.9f
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                GlossyOnboardingPalette.Glow.copy(alpha = 0.85f),
-                                Color.Transparent,
-                            ),
-                            center = glowCenter,
-                            radius = glowRadius,
-                        ),
-                        radius = glowRadius,
-                        center = glowCenter,
-                    )
-                },
-        )
-        Icon(
-            painter = painterResource(R.drawable.app_logo),
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(markSize * 0.74f),
-        )
-    }
-}
-
-/**
- * The onboarding's primary action — Continue, Next, Start listening — as the
- * same sea-glass pill the sign-in card uses, so the flow reads as one screen
- * handing over to the next rather than as a glass landing page followed by a
- * flat one. The violet is carried *inside* the glass as tint, with a chalky rim
- * and a frosted body, instead of being painted on.
- *
- * The disabled pill keeps the same body and withdraws its tint, because the
- * step is not finished yet rather than because the control has changed.
- */
-@Composable
-private fun OnboardingPrimaryButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    leading: (@Composable () -> Unit)? = null,
-) {
-    val fill =
-        if (enabled) {
-            GlossyOnboardingPalette.Primary
-        } else {
-            GlossyOnboardingPalette.Primary.copy(alpha = 0.35f)
-        }
-
-    SeaGlassPill(
-        fill = fill,
-        ink = GlossyOnboardingPalette.OnPrimary,
-        shadowTint = GlossyOnboardingPalette.Primary,
-        onClick = onClick,
-        enabled = enabled,
-        sheen = enabled,
-        height = 54.dp,
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        if (leading != null) {
-            leading()
-            Spacer(Modifier.width(10.dp))
-        }
-        Text(
-            text = text,
-            color = GlossyOnboardingPalette.OnPrimary,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-    }
-}
-
-/** Small round glassy icon action, used to step back. */
-@Composable
-private fun OnboardingBackButton(onClick: () -> Unit) {
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier
-            .size(42.dp)
-            .clip(CircleShape)
-            .background(GlossyOnboardingPalette.ChipFill),
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.arrow_back),
-            contentDescription = stringResource(R.string.back),
-            tint = GlossyOnboardingPalette.OnBackdrop,
-            modifier = Modifier.size(20.dp),
-        )
-    }
-}
-
-
-// ============================================================================
-// Step 2 — guest nickname
-// ============================================================================
-
-@Composable
-private fun GuestInputSection(
+private fun SpozGuestStep(
     name: String,
-    activeIndex: Int,
     onNameChange: (String) -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit,
 ) {
-    val isValid = name.isNotBlank()
-
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .systemBarsPadding()
-            .imePadding()
-            .padding(horizontal = GlossyDimens.ScreenPadding),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(horizontal = 26.dp)
+            .padding(top = 40.dp, bottom = 28.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OnboardingBackButton(onClick = onBack)
-            Spacer(Modifier.weight(1f))
-        }
-
-        Spacer(Modifier.weight(0.8f))
-
         Box(
             modifier = Modifier
-                .size(92.dp)
+                .size(44.dp)
                 .clip(CircleShape)
-                .background(GlossyOnboardingPalette.ChipFill)
-                .border(1.dp, GlossyOnboardingPalette.ChipBorder, CircleShape),
+                .background(SpozPalette.DarkSurface)
+                .clickable(onClick = onBack),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                painter = painterResource(R.drawable.person),
-                contentDescription = null,
-                tint = GlossyOnboardingPalette.OnBackdrop,
-                modifier = Modifier.size(44.dp),
-            )
+            Text("\u2039", color = SpozPalette.DarkInk, fontSize = 24.sp)
         }
-
-        Spacer(Modifier.height(24.dp))
-
-        Text(
-            text = "What should we call you?",
-            color = GlossyOnboardingPalette.OnBackdrop,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            text = "Pick a nickname for your Glossy profile. You can change it later in Settings.",
-            color = GlossyOnboardingPalette.OnBackdropMuted,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-        )
-
-        Spacer(Modifier.height(32.dp))
-
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp),
-            shape = RoundedCornerShape(20.dp),
-            color = GlossyOnboardingPalette.ChipFill,
-            border = BorderStroke(
-                width = if (isValid) 1.6.dp else 1.dp,
-                color = if (isValid) GlossyOnboardingPalette.Primary
-                else GlossyOnboardingPalette.ChipBorder,
-            ),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 18.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.edit),
-                    contentDescription = null,
-                    tint = if (isValid) GlossyOnboardingPalette.Primary
-                    else GlossyOnboardingPalette.OnBackdropMuted,
-                    modifier = Modifier.size(20.dp),
-                )
-
-                Spacer(Modifier.width(14.dp))
-
-                BasicTextField(
-                    value = name,
-                    onValueChange = onNameChange,
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(
-                        color = GlossyOnboardingPalette.OnBackdrop,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 16.sp,
-                    ),
-                    cursorBrush = SolidColor(GlossyOnboardingPalette.Primary),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Words,
-                        imeAction = ImeAction.Done,
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { if (isValid) onContinue() },
-                    ),
-                    modifier = Modifier.weight(1f),
-                    decorationBox = { innerTextField ->
-                        if (name.isEmpty()) {
-                            Text(
-                                text = "Your name or nickname",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = GlossyOnboardingPalette.OnBackdropMuted.copy(alpha = 0.7f),
-                            )
-                        }
-                        innerTextField()
-                    },
-                )
-
-                if (name.isNotEmpty()) {
-                    IconButton(
-                        onClick = { onNameChange("") },
-                        modifier = Modifier.size(28.dp),
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.close),
-                            contentDescription = null,
-                            tint = GlossyOnboardingPalette.OnBackdropMuted,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(20.dp))
-
-        OnboardingPrimaryButton(
-            text = "Start listening",
-            onClick = onContinue,
-            enabled = isValid,
-        )
 
         Spacer(Modifier.weight(1f))
 
-        GlossyDotsIndicator(count = 3, activeIndex = activeIndex)
+        Box(
+            modifier = Modifier
+                .size(96.dp)
+                .clip(CircleShape)
+                .background(SpozAccents.Purple.copy(alpha = 0.22f))
+                .align(Alignment.CenterHorizontally),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("\u263A", color = SpozAccents.Purple, fontSize = 40.sp)
+        }
 
-        Spacer(Modifier.height(18.dp))
-
+        Spacer(Modifier.height(24.dp))
         Text(
-            text = stringResource(R.string.glossy_credits),
-            color = GlossyOnboardingPalette.OnBackdropMuted.copy(alpha = 0.7f),
-            style = MaterialTheme.typography.labelSmall,
-            letterSpacing = 0.6.sp,
+            text = "What should we call you?",
+            modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(bottom = 16.dp),
+            fontSize = 26.sp,
+            fontWeight = FontWeight.Bold,
+            color = SpozPalette.DarkInk,
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = "Pick a nickname for your Spo~z profile. You can change it later in Settings.",
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
+            fontSize = 14.sp,
+            color = SpozPalette.DarkMuted,
+        )
+
+        Spacer(Modifier.height(26.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(SpozPalette.DarkSurface)
+                .border(1.dp, SpozAccents.Purple.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+        ) {
+            if (name.isEmpty()) {
+                Text("Your name or nickname", color = SpozPalette.DarkMuted, fontSize = 16.sp)
+            }
+            BasicTextField(
+                value = name,
+                onValueChange = onNameChange,
+                singleLine = true,
+                textStyle = TextStyle(color = SpozPalette.DarkInk, fontSize = 16.sp),
+                cursorBrush = SolidColor(SpozAccents.Purple),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        SpozPrimaryButton("Start listening", onContinue)
+
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = SPOZ_CREDIT,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
+            fontSize = 12.sp,
+            color = SpozPalette.DarkMuted,
         )
     }
 }
 
-// ============================================================================
-// Step 3 — community
-// ============================================================================
-
 @Composable
-private fun CommunitySection(
-    activeIndex: Int,
-    onNext: () -> Unit,
-) {
+private fun SpozCommunityStep(onNext: () -> Unit) {
     val uriHandler = LocalUriHandler.current
-    val context = LocalContext.current
-
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .systemBarsPadding()
-            .padding(horizontal = GlossyDimens.ScreenPadding),
+            .padding(horizontal = 24.dp)
+            .padding(top = 72.dp, bottom = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.weight(1f))
-
-        GlossyMark(markSize = 72.dp)
-
-        Spacer(Modifier.height(22.dp))
-
-        Text(
-            text = stringResource(R.string.glossy_community_title),
-            color = GlossyOnboardingPalette.OnBackdrop,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-        )
-
-        Spacer(Modifier.height(10.dp))
-
-        Text(
-            text = stringResource(R.string.glossy_community_subtitle),
-            color = GlossyOnboardingPalette.OnBackdropMuted,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 8.dp),
-        )
-
-        Spacer(Modifier.height(28.dp))
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = GlossyOnboardingPalette.Card,
-            border = BorderStroke(1.dp, GlossyOnboardingPalette.CardBorder),
-            shadowElevation = 8.dp,
+        Box(
+            modifier = Modifier
+                .size(84.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(SpozAccents.Purple.copy(alpha = 0.20f)),
+            contentAlignment = Alignment.Center,
         ) {
-            Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                CommunityChannel.entries.forEachIndexed { index, channel ->
-                    if (index > 0) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 66.dp, end = 16.dp)
-                                .height(1.dp)
-                                .background(GlossyOnboardingPalette.CardBorder),
+            Text("Spo~z", color = SpozAccents.Purple, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(Modifier.height(20.dp))
+        Text(
+            text = "You're all set",
+            fontSize = 26.sp,
+            fontWeight = FontWeight.Bold,
+            color = SpozPalette.DarkInk,
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = "Spo~z is built in the open. Follow along for release news, support and early builds.",
+            textAlign = TextAlign.Center,
+            fontSize = 14.sp,
+            color = SpozPalette.DarkMuted,
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(SpozPalette.DarkSurface),
+        ) {
+            CommunityChannel.entries.forEachIndexed { index, channel ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { runCatching { uriHandler.openUri(channel.url) } }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(channel.brandColor),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(id = channel.iconRes),
+                            contentDescription = channel.label,
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp),
                         )
                     }
-                    ChannelRow(
-                        channel = channel,
-                        onClick = {
-                            runCatching { uriHandler.openUri(channel.url) }
-                                .onFailure { openWithPackageManager(context, channel.url) }
-                        },
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = channel.label,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = SpozPalette.DarkInk,
+                        )
+                        Text(
+                            text = stringResource(channel.descriptionRes),
+                            fontSize = 12.sp,
+                            color = SpozPalette.DarkMuted,
+                        )
+                    }
+                    Text("\u203A", color = SpozPalette.DarkMuted, fontSize = 20.sp)
+                }
+                if (index != CommunityChannel.entries.lastIndex) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 70.dp)
+                            .height(1.dp)
+                            .background(SpozPalette.DarkMuted.copy(alpha = 0.2f)),
                     )
                 }
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-
+        Spacer(Modifier.height(16.dp))
         Text(
-            text = stringResource(R.string.glossy_community_handle),
-            color = GlossyOnboardingPalette.OnBackdropMuted,
-            style = MaterialTheme.typography.labelMedium,
-            letterSpacing = 0.6.sp,
+            text = SPOZ_HANDLE,
+            fontSize = 14.sp,
+            color = SpozPalette.DarkMuted,
         )
 
         Spacer(Modifier.weight(1f))
-
-        GlossyDotsIndicator(count = 3, activeIndex = activeIndex)
-
-        Spacer(Modifier.height(16.dp))
-
-        OnboardingPrimaryButton(
-            text = stringResource(R.string.next),
-            onClick = onNext,
+        SpozPrimaryButton("Next", onNext)
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = SPOZ_CREDIT,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
+            fontSize = 12.sp,
+            color = SpozPalette.DarkMuted,
         )
-
-        Spacer(Modifier.height(20.dp))
     }
 }
 
 @Composable
-private fun ChannelRow(
-    channel: CommunityChannel,
-    onClick: () -> Unit,
-) {
-    Row(
+private fun SpozPrimaryButton(text: String, onClick: () -> Unit) {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(SpozAccents.Purple)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(CircleShape)
-                .background(channel.brandColor),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(channel.iconRes),
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-
-        Spacer(Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = channel.label,
-                color = GlossyOnboardingPalette.OnCard,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = stringResource(channel.descriptionRes),
-                color = GlossyOnboardingPalette.OnCardMuted,
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        Spacer(Modifier.width(8.dp))
-
-        Icon(
-            painter = painterResource(R.drawable.navigate_next),
-            contentDescription = null,
-            tint = GlossyOnboardingPalette.OnCardMuted,
-            modifier = Modifier.size(18.dp),
-        )
-    }
-}
-
-/**
- * Last resort for a [CommunityChannel] whose URL no app or browser claims:
- * hand the link to the system so the user at least gets the chooser.
- */
-private fun openWithPackageManager(
-    context: Context,
-    url: String,
-) {
-    runCatching {
-        context.startActivity(
-            android.content.Intent(
-                android.content.Intent.ACTION_VIEW,
-                android.net.Uri.parse(url),
-            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        Text(
+            text = text,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = SpozPalette.DarkInk,
         )
     }
 }
