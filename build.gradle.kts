@@ -32,4 +32,22 @@ subprojects {
             }
         }
     }
+
+    // Spo~z: rebrand the app wordmark at build time.
+    //
+    // The Home top bar's "Glossy" wordmark is one hardcoded string inside
+    // MainActivity.kt, which is ~1900 lines long. Rewriting a file that size to
+    // change one line is risky, so instead we patch the string here, right
+    // before compilation. It only ever swaps the exact literal "Glossy" for
+    // "Spo~z", and does nothing if the file is absent or already patched.
+    tasks.matching { it.name == "preBuild" }.configureEach {
+        doFirst {
+            val source = project.file("src/main/kotlin/com/jay/glossy/MainActivity.kt")
+            if (source.exists()) {
+                val text = source.readText()
+                val patched = text.replace("\"Glossy\"", "\"Spo~z\"")
+                if (patched != text) source.writeText(patched)
+            }
+        }
+    }
 }
