@@ -45,11 +45,14 @@ jobs:
       - name: Generate signing keystore
         run: |
           mkdir -p app/keystore
+          # The repo ships its own release.keystore; replace it with ours so the
+          # passwords below are the ones in effect.
+          rm -f app/keystore/release.keystore
           keytool -genkeypair -v \
             -keystore app/keystore/release.keystore \
             -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" -keypass "$KEY_PASSWORD" \
             -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Spo~z,O=Spo~z,C=IN"
+            -dname "CN=Spoz,O=Spoz,C=IN"
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
