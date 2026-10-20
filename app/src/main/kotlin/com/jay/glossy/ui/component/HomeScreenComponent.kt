@@ -32,8 +32,8 @@ import com.jay.glossy.viewmodels.HomeViewModel
 
 @Composable
 fun GlossyCustomHeader(userName: String) {
-    val navController = LocalNavController.current 
-    
+    val navController = LocalNavController.current
+
     val viewModel: HomeViewModel = hiltViewModel()
     val accountImageUrl by viewModel.accountImageUrl.collectAsStateWithLifecycle()
     var showAccountDialog by remember { mutableStateOf(false) }
@@ -47,7 +47,7 @@ fun GlossyCustomHeader(userName: String) {
             latestVersionName = BuildConfig.VERSION_NAME
         )
     }
-    
+
     val vibeText = remember {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         when (hour) {
@@ -113,7 +113,7 @@ fun GlossyCustomHeader(userName: String) {
                     .clickable { navController.navigate("history") },
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
+
             Icon(
                 painter = painterResource(id = R.drawable.stats),
                 contentDescription = "Stats",
@@ -122,16 +122,7 @@ fun GlossyCustomHeader(userName: String) {
                     .clickable { navController.navigate("stats") },
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
-            Icon(
-                painter = painterResource(id = R.drawable.group_outlined),
-                contentDescription = "Listen Together",
-                modifier = Modifier
-                    .size(20.dp)
-                    .clickable { navController.navigate("listen_together_from_topbar") },
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            
+
             Box(
                 modifier = Modifier
                     .size(30.dp)
