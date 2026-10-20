@@ -1,5 +1,5 @@
 /**
- * Glossy Project (C) 2026
+ * Spo~z Project (C) 2026
  * Licensed under GPL-3.0 | See git history for contributors
  */
 
@@ -36,7 +36,8 @@ import com.jay.glossy.constants.DesignStyle
 import com.jay.glossy.constants.SelectedFontKey
 import com.jay.glossy.utils.rememberPreference
 
-val DefaultThemeColor = Color(0xFFED5564)
+/** Spo~z default accent (lavender purple). */
+val DefaultThemeColor = Color(0xFFB79CFF)
 
 @Composable
 fun MetrolistTheme(
@@ -46,7 +47,7 @@ fun MetrolistTheme(
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
-    
+
     val (selectedFontValue) = rememberPreference(SelectedFontKey, AppFont.SYSTEM.value)
     // Read here as well as in the picker: the imported font is the one choice
     // whose family comes from a file on the device instead of the app's own
@@ -114,17 +115,17 @@ fun MetrolistTheme(
 }
 
 /**
- * Global Material You shape system. Every Material component (cards, dialogs,
- * buttons, chips, bottom sheets, text fields, menus...) picks its corner
- * radius from here, giving the whole app one consistent rounded look without
- * touching individual screens.
+ * Global shape system. Every Material component (cards, dialogs, buttons,
+ * chips, bottom sheets, text fields, menus...) picks its corner radius from
+ * here. Spo~z leans on generous, rounded corners, so these are bumped up from
+ * the original tighter set.
  */
 val GlossyShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(24.dp),
-    extraLarge = RoundedCornerShape(32.dp),
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(16.dp),
+    medium = RoundedCornerShape(22.dp),
+    large = RoundedCornerShape(28.dp),
+    extraLarge = RoundedCornerShape(36.dp),
 )
 
 fun Bitmap.extractThemeColor(): Color {
