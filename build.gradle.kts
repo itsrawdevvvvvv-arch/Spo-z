@@ -33,8 +33,8 @@ subprojects {
         }
     }
 
-    // Spo~z rebrand + performance, applied at build time so the huge source
-    // files never have to be rewritten by hand.
+    // Spo~z rebrand + fixes, applied at build time so the huge source files
+    // never have to be rewritten by hand.
     tasks.matching { it.name == "preBuild" }.configureEach {
         doFirst {
             fun patch(relative: String, from: String, to: String) {
@@ -51,9 +51,7 @@ subprojects {
             // 2. Design-system accent: teal 1D9E75 -> Spo~z purple B79CFF.
             patch("src/main/kotlin/com/jay/glossy/ui/theme/GlossyDesign.kt", "1D9E75", "B79CFF")
 
-            // 3. Performance: drop every .blur(...) modifier. Blur is a
-            //    full-screen GPU pass per frame and is the single biggest cost
-            //    on low-end devices.
+            // 3. Performance: drop every .blur(...) modifier.
             patch("src/main/kotlin/com/jay/glossy/ui/component/LyricsImageCard.kt", ".blur(80.dp)", "")
             patch("src/main/kotlin/com/jay/glossy/ui/component/LyricsLine.kt", ".blur(lineBlur)", "")
             patch("src/main/kotlin/com/jay/glossy/ui/component/OriginalLyrics.kt", ".blur(lineBlur)", "")
@@ -77,13 +75,25 @@ subprojects {
                 "",
             )
 
-            // 5. Performance: pin the Home header aurora wash static. It is a
-            //    radial gradient repainted every frame; with the drift pinned at
-            //    zero no animation is created and the header stops repainting.
+            // 5. Performance: pin the Home header aurora wash static.
             patch(
                 "src/main/kotlin/com/jay/glossy/ui/component/GreetingSection.kt",
                 "if (rememberAmbientMotionEnabled()) {",
                 "if (false) {",
+            )
+
+            // 6. FIX: Spotify playlist pagination. The old loop advanced the
+            //    offset by the number of *playlists it kept*, but the page also
+            //    contains non-playlist library items (folders, liked songs,
+            //    episodes, events) that the parser drops. So with a page that
+            //    held mostly folders it advanced by only a few and then stopped
+            //    on `items.size < limit` — which is why only a handful of
+            //    playlists ever loaded. Advance by the requested page size and
+            //    stop on the API's own total instead.
+            patch(
+                "src/main/kotlin/com/jay/glossy/spotify/SpotifyLibraryRepository.kt",
+                "            offset += page.items.size\n            if (offset >= page.total || page.items.size < limit) break",
+                "            offset += limit\n            if (offset >= page.total) break",
             )
         }
     }
